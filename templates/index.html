@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}RPG Tenis — Semana{% endblock %}
+
+{% block content %}
+<div class="hdr">
+  <div class="hr">
+    <div>
+      <div class="atitle">RPG Tenis</div>
+      <div class="asub">Retorno al tenis sin dolor</div>
+    </div>
+    <div id="hdr-right" style="text-align:right">
+      <div class="wk-lbl">Esta semana</div>
+      <div class="wk-val" id="dias-count">—</div>
+    </div>
+  </div>
+  <div class="pw">
+    <div class="pb"><div class="pf" id="prog-fill" style="width:0%"></div></div>
+    <div class="pl" id="prog-lbl">0%</div>
+  </div>
+</div>
+
+<!-- Strip de días -->
+<div class="strip" id="day-strip">
+  <!-- Se genera con JS -->
+</div>
+
+<div class="cnt" id="main-content">
+  <div class="loading-msg">Cargando tu semana...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const HOY_ID = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+let semanaData = null;
+
+async function cargarSemana() {
+  const res  = await fetch('/api/semana');
+  semanaData = await res.json();
+  renderStrip(semanaData);
+  renderDia(semanaData.hoy_dia_id);
+  actualizarHeader(semanaData);
+}
+
+function actualizarHeader(data) {
+  const completados = data.dias.filter(d => d.completado).length;
+  const pct = Math.round(completados / 7 * 100);
+  document.getElementById('dias-count').textContent = `${completados}/7 días`;
+  document.getElementById('prog-fill').style.width  = pct + '%';
+  document.getElementById('prog-lbl').textContent   = pct + '%';
+}
+
+function renderStrip(data) {
+  const strip = document.getElementById('day-strip');
+  strip.innerHTML = data.dias.map(d => {
+    const esHoy   = d.dia_id === data.hoy_dia_id;
+    const clases  = ['dp', d.completado ? 'dn' : '', esHoy ? 'act' : ''].filter(Boolean).join(' ');
+    return `<div class="${clases}" onclick="renderDia(${d.dia_id})">
+      <span class="pn">${d.nombre.slice(0,3)}${esHoy ? ' ·' : ''}</span>
+      <span class="pt">${d.completado ? '✓' : d.label}</span>
+    </div>`;
+  }).join('');
+}
+
+async function renderDia(dia_id) {
+  // Actualizar strip activo
+  document.querySelectorAll('.dp').forEach((el, i) => {
+    el.classList.toggle('act', i === dia_id && !el.classList.contains('dn'));
+  });
+
+  const res  = await fetch(`/api/rutina/${dia_id}`);
+  const data = await res.json();
+
+  const cnt = document.getElementById('main-content');
+
+  const badge = badgeHTML(dia_id);
+  const seccionesHTML = data.secciones.map(sec => `
+    <div class="sec">
+      <div class="sct">${sec.nombre}</div>
+      ${sec.ejercicios.map(ex => ejercicioHTML(ex, dia_id)).join('')}
+    </div>
+  `).join('');
+
+  cnt.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div class="dmeta">
+        ${badge}
+        ${data.completado ? '<span class="bdg bg">✓ Completado</span>' : ''}
+      </div>
+      <div class="dtitle">${data.info.nombre} — ${data.info.label}</div>
+      <div class="dsub">Nivel de carga: <strong>${data.nivel}</strong></div>
+    </div>
+    <div class="mets">
+      <div class="met"><div class="ml">Duración</div><div class="mv">${data.info.duracion}</div></div>
+      <div class="met"><div class="ml">Intensidad</div><div class="mv">${data.info.intensidad}</div></div>
+      <div class="met"><div class="ml">Ejercicios</div><div class="mv">${data.hechos_ex}/${data.total_ex}</div></div>
+    </div>
+    ${seccionesHTML}
+    <div class="tip"><div class="tipl">Consejo</div>${data.tip}</div>
+    <button class="cbtn ${data.completado ? 'on' : ''}" onclick="toggleSesion(${dia_id}, this)">
+      ${data.completado ? '✓ Sesión completada' : 'Marcar sesión como completada'}
+    </button>
+    <div class="alrt" style="margin-top:12px">
+      <div class="alrtt">⚠ Detener si aparece:</div>
+      <div class="alrti">· Dolor en rodilla mayor a 3/10</div>
+      <div class="alrti">· Hormigueo o entumecimiento en brazos/manos</div>
+      <div class="alrti">· Hinchazón visible en rodilla post-sesión</div>
+    </div>
+  `;
+}
+
+function ejercicioHTML(ex, dia_id) {
+  const tagCls = ex.tag === 'new' ? 'tnew' : ex.tag === 'warn' ? 'twarn' : 'tkeep';
+  const tagTxt = ex.tag === 'new' ? 'Nuevo — tenis' : ex.tag === 'warn' ? 'Precaución' : 'Sin cambios';
+  return `
+    <div class="exr" onclick="toggleEjercicio(${ex.id}, this)" data-hecho="${ex.hecho}">
+      <div class="chk ${ex.hecho ? 'on' : ''}">
+        ${ex.hecho ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+      </div>
+      <div class="exb">
+        <div class="exn ${ex.hecho ? 'dk' : ''}">${ex.nombre}</div>
+        <div class="exd">${ex.detalle}</div>
+        <div class="etags"><span class="etag ${tagCls}">${tagTxt}</span></div>
+        ${ex.nota ? `<div class="enote">${ex.nota}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function badgeHTML(dia_id) {
+  const badges = {
+    0: '<span class="bdg bp">Fase 2 — Fundamentos</span>',
+    1: '<span class="bdg bp">Fase 2 — Fundamentos</span>',
+    2: '<span class="bdg bc">Prioridad — rodilla</span>',
+    3: '<span class="bdg bp">Fase 2 — Fundamentos</span>',
+    4: '<span class="bdg bg">Validación en cancha</span>',
+    5: '<span class="bdg bt">Recuperación activa</span>',
+    6: '<span class="bdg bt">Recuperación</span>',
+  };
+  return badges[dia_id] || '';
+}
+
+async function toggleEjercicio(ejercicio_id, el) {
+  const res  = await fetch('/api/progreso', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ejercicio_id})
+  });
+  const data = await res.json();
+  const chk  = el.querySelector('.chk');
+  const exn  = el.querySelector('.exn');
+  chk.classList.toggle('on', data.hecho);
+  chk.innerHTML = data.hecho
+    ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    : '';
+  exn.classList.toggle('dk', data.hecho);
+}
+
+async function toggleSesion(dia_id, btn) {
+  const res  = await fetch('/api/sesion/completar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({dia_id})
+  });
+  const data = await res.json();
+  btn.classList.toggle('on', data.completada);
+  btn.textContent = data.completada ? '✓ Sesión completada' : 'Marcar sesión como completada';
+
+  // Recargar semana para actualizar progreso
+  await cargarSemana();
+}
+
+cargarSemana();
+</script>
+{% endblock %}
