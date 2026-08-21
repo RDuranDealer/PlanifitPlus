@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sistema — Admin PlanifiT</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="admin-wrap">
+  <div class="admin-hdr">
+    <a href="/admin/{{ token }}" class="back-link">← Volver</a>
+    <h1>⚙️ Configuración del sistema</h1>
+    <p>Parámetros globales de la aplicación</p>
+  </div>
+
+  <div class="admin-section">
+    <label class="admin-label">Estado actual de la API Key</label>
+    <div id="key-status" class="key-status-box">Verificando...</div>
+  </div>
+
+  <div class="admin-section">
+    <label class="admin-label">Configurar API Key de Claude (Anthropic)</label>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:12px">
+      La key se guarda cifrada en la base de datos PostgreSQL de Railway.
+      Obtén tu key en <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--pur)">console.anthropic.com</a>
+    </p>
+    <div class="admin-field">
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." 
+             style="font-family:monospace;font-size:13px">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="admin-btn" onclick="guardarKey()" style="flex:2">💾 Guardar API Key</button>
+        <button class="admin-btn-sec" onclick="toggleVer()" style="flex:1">👁 Ver</button>
+        <button class="admin-btn-sec" onclick="eliminarKey()" style="flex:1;color:var(--cor);border-color:var(--cor)">🗑 Eliminar</button>
+      </div>
+    </div>
+    <div id="key-msg" style="display:none;margin-top:8px;padding:10px 12px;border-radius:8px;font-size:13px"></div>
+  </div>
+
+  <div class="admin-section">
+    <label class="admin-label">Instrucciones</label>
+    <ol style="font-size:13px;color:var(--t2);line-height:2;padding-left:18px">
+      <li>Ve a <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--pur)">console.anthropic.com/settings/keys</a></li>
+      <li>Crea una nueva key con nombre <strong>PlanifiT</strong> y sin fecha de expiración</li>
+      <li>Copia la key completa (empieza con <code>sk-ant-</code>)</li>
+      <li>Pégala en el campo de arriba y guarda</li>
+      <li>Prueba el Assessment desde Admin → Usuarios → 🤖 Assessment</li>
+    </ol>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+</div>
+
+<script>
+const TOKEN = '{{ token }}';
+
+async function cargarEstado() {
+  const res  = await fetch(`/api/admin/sistema/apikey?token=${TOKEN}`);
+  const data = await res.json();
+  const box  = document.getElementById('key-status');
+  if (data.fuente === 'ninguna') {
+    box.className = 'key-status-box error';
+    box.innerHTML = '❌ No hay API Key configurada — el Assessment no funcionará';
+  } else {
+    box.className = 'key-status-box ok';
+    box.innerHTML = `✅ API Key activa · Fuente: <strong>${data.fuente === 'base_de_datos' ? 'Base de datos (PostgreSQL)' : 'Variable de entorno'}</strong><br>
+    <code style="font-size:11px;opacity:.7">${data.preview}</code>`;
+  }
+}
+
+async function guardarKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { mostrarMsg('Ingresa la API Key', 'error'); return; }
+  const res  = await fetch(`/api/admin/sistema/apikey?token=${TOKEN}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({api_key: key})
+  });
+  const data = await res.json();
+  if (res.ok) {
+    mostrarMsg(`✅ API Key guardada correctamente: ${data.preview}`, 'ok');
+    document.getElementById('api-key-input').value = '';
+    cargarEstado();
+  } else {
+    mostrarMsg(`❌ Error: ${data.error}`, 'error');
+  }
+}
+
+async function eliminarKey() {
+  if (!confirm('¿Eliminar la API Key de la base de datos?')) return;
+  await fetch(`/api/admin/sistema/apikey?token=${TOKEN}`, {method:'DELETE'});
+  mostrarMsg('Key eliminada de la base de datos', 'error');
+  cargarEstado();
+}
+
+function toggleVer() {
+  const inp = document.getElementById('api-key-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function mostrarMsg(msg, tipo) {
+  const el = document.getElementById('key-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = tipo === 'ok' ? 'var(--grnb)' : 'var(--corb)';
+  el.style.color = tipo === 'ok' ? 'var(--grnt)' : 'var(--cort)';
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+cargarEstado();
+</script>
+<style>
+.key-status-box{padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.6;background:var(--s2);color:var(--t2)}
+.key-status-box.ok{background:var(--grnb);color:var(--grnt)}
+.key-status-box.error{background:var(--corb);color:var(--cort)}
+</style>
+</body>
+</html>

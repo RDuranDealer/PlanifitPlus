@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mi plan personalizado</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assessment.css') }}">
+</head>
+<body>
+
+<div class="as-header">
+  <a href="/app" class="as-back">← Volver a la app</a>
+  <div class="as-title">{{ usuario.avatar }} Hola {{ usuario.nombre }}</div>
+  <div class="as-sub">Vamos a crear tu plan de entrenamiento personalizado</div>
+</div>
+
+{% if assessment_activo and assessment_activo.estado == 'listo' %}
+<div class="as-existing">
+  <div class="as-existing-title">✓ Ya tienes un plan activo</div>
+  <div class="as-existing-meta">
+    Generado el {{ assessment_activo.created_at.strftime('%d/%m/%Y') if assessment_activo.created_at else '' }}
+    · {{ assessment_activo.ejercicios_cargados }} ejercicios
+  </div>
+  <button class="as-btn-new" onclick="mostrarFormulario()">🔄 Crear un nuevo plan (reemplaza el actual)</button>
+</div>
+{% endif %}
+
+<div id="form-wrap" {% if assessment_activo and assessment_activo.estado == 'listo' %}style="display:none"{% endif %}>
+
+  <div class="as-progress">
+    <div class="as-step act" id="step-dot-1"><div class="as-step-num">1</div><div class="as-step-label">Perfil</div></div>
+    <div class="as-step-line"></div>
+    <div class="as-step" id="step-dot-2"><div class="as-step-num">2</div><div class="as-step-label">Salud</div></div>
+    <div class="as-step-line"></div>
+    <div class="as-step" id="step-dot-3"><div class="as-step-num">3</div><div class="as-step-label">Equipo</div></div>
+    <div class="as-step-line"></div>
+    <div class="as-step" id="step-dot-4"><div class="as-step-num">4</div><div class="as-step-label">Objetivo</div></div>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="as-panel" id="panel-1">
+    <div class="as-panel-title">Cuéntame sobre ti</div>
+    <div class="as-field"><label>Nombre</label><input id="f-nombre" type="text" value="{{ usuario.nombre }}" placeholder="Tu nombre"></div>
+    <div class="as-row">
+      <div class="as-field"><label>Edad</label><input id="f-edad" type="number" placeholder="años" min="10" max="90"></div>
+      <div class="as-field"><label>Sexo biológico</label>
+        <select id="f-sexo"><option value="">Seleccionar</option><option>Hombre</option><option>Mujer</option></select>
+      </div>
+    </div>
+    <div class="as-row">
+      <div class="as-field"><label>Peso (kg)</label><input id="f-peso" type="number" placeholder="kg"></div>
+      <div class="as-field"><label>Estatura (cm)</label><input id="f-estatura" type="number" placeholder="cm"></div>
+    </div>
+    <div class="as-imc-preview" id="imc-preview"></div>
+    <button class="as-btn-next" onclick="siguiente(1)">Siguiente →</button>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="as-panel" id="panel-2" style="display:none">
+    <div class="as-panel-title">Salud y condición física</div>
+    <div class="as-row">
+      <div class="as-field"><label>FC en reposo (bpm) <span class="as-opt">opcional</span></label><input id="f-fcr" type="number" placeholder="ej: 65"></div>
+      <div class="as-field"><label>Presión arterial <span class="as-opt">opcional</span></label><input id="f-presion" type="text" placeholder="ej: 120/80"></div>
+    </div>
+    <div class="as-field"><label>¿Tienes alguna lesión o condición médica?</label>
+      <textarea id="f-lesiones" rows="3" placeholder="Ej: rodilla operada, dolor de espalda, diabetes...&#10;Si ninguna, escribe 'ninguna'"></textarea>
+    </div>
+    <div class="as-field"><label>Nivel de actividad actual</label>
+      <select id="f-actividad">
+        <option value="">Seleccionar</option>
+        <option value="sedentario">Sedentario — no hago ejercicio</option>
+        <option value="levemente activo">Levemente activo — 1-2 días/semana</option>
+        <option value="moderadamente activo">Moderadamente activo — 3-4 días/semana</option>
+        <option value="muy activo">Muy activo — 5+ días/semana</option>
+      </select>
+    </div>
+    <div class="as-fcmax-preview" id="fcmax-preview"></div>
+    <div class="as-btn-row">
+      <button class="as-btn-back" onclick="irPaso(1)">← Atrás</button>
+      <button class="as-btn-next" onclick="siguiente(2)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="as-panel" id="panel-3" style="display:none">
+    <div class="as-panel-title">Equipamiento disponible</div>
+    <div class="as-checks">
+      <label class="as-check"><input type="checkbox" value="Mancuernas / pesas"> Mancuernas / pesas</label>
+      <label class="as-check"><input type="checkbox" value="TRX / suspensión"> TRX / suspensión</label>
+      <label class="as-check"><input type="checkbox" value="Bandas elásticas"> Bandas elásticas</label>
+      <label class="as-check"><input type="checkbox" value="Kettlebell"> Kettlebell</label>
+      <label class="as-check"><input type="checkbox" value="Máquinas de gimnasio"> Máquinas de gimnasio</label>
+      <label class="as-check"><input type="checkbox" value="Pelota de pilates"> Pelota de pilates</label>
+      <label class="as-check"><input type="checkbox" value="Foam roller"> Foam roller</label>
+      <label class="as-check"><input type="checkbox" value="Cuerda de saltar"> Cuerda de saltar</label>
+      <label class="as-check"><input type="checkbox" value="Solo peso corporal" checked> Solo peso corporal</label>
+      <label class="as-check"><input type="checkbox" value="Espacio al aire libre"> Espacio al aire libre</label>
+    </div>
+    <div class="as-row" style="margin-top:14px">
+      <div class="as-field"><label>¿Dónde entrenas?</label>
+        <select id="f-lugar"><option value="hogar">Hogar</option><option value="gimnasio">Gimnasio</option><option value="aire libre">Aire libre</option><option value="mixto">Mixto</option></select>
+      </div>
+      <div class="as-field"><label>Espacio disponible</label>
+        <select id="f-espacio"><option value="pequeño">Pequeño</option><option value="mediano" selected>Mediano</option><option value="amplio">Amplio</option></select>
+      </div>
+    </div>
+    <div class="as-btn-row">
+      <button class="as-btn-back" onclick="irPaso(2)">← Atrás</button>
+      <button class="as-btn-next" onclick="siguiente(3)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- PASO 4 -->
+  <div class="as-panel" id="panel-4" style="display:none">
+    <div class="as-panel-title">Tu objetivo y estilo</div>
+    <div class="as-field"><label>Objetivo principal</label>
+      <select id="f-objetivo">
+        <option value="">Seleccionar</option>
+        <option value="Pérdida de grasa y composición corporal">Pérdida de grasa</option>
+        <option value="Ganancia de fuerza y masa muscular">Fuerza y músculo</option>
+        <option value="Mejorar resistencia cardiovascular">Resistencia cardiovascular</option>
+        <option value="Retorno deportivo">Retorno deportivo</option>
+        <option value="Rehabilitación y readaptación">Rehabilitación</option>
+        <option value="Bienestar general y movilidad">Bienestar general</option>
+      </select>
+      <input id="f-objetivo-detalle" type="text" placeholder="Si es retorno deportivo, especifica el deporte" style="margin-top:6px">
+    </div>
+    <div class="as-field"><label>Estilo preferido</label>
+      <select id="f-estilo">
+        <option value="">Seleccionar</option>
+        <option value="Entrenamiento funcional">Funcional</option>
+        <option value="Fuerza tradicional">Fuerza tradicional</option>
+        <option value="CrossFit / HIIT">CrossFit / HIIT</option>
+        <option value="Yoga / flexibilidad">Yoga / flexibilidad</option>
+        <option value="Pilates">Pilates</option>
+        <option value="Calistenia / peso corporal">Calistenia</option>
+        <option value="RPG (Reeducación Postural Global)">RPG</option>
+        <option value="Combinado funcional y fuerza">Combinado</option>
+      </select>
+    </div>
+    <div class="as-row">
+      <div class="as-field"><label>Días por semana</label>
+        <select id="f-dias"><option value="2">2 días</option><option value="3" selected>3 días</option><option value="4">4 días</option><option value="5">5 días</option><option value="6">6 días</option><option value="7">7 días</option></select>
+      </div>
+      <div class="as-field"><label>Tiempo por sesión</label>
+        <select id="f-tiempo"><option value="20">20 min</option><option value="30">30 min</option><option value="45" selected>45 min</option><option value="60">60 min</option><option value="90">90 min</option></select>
+      </div>
+    </div>
+    <div class="as-field"><label>Nivel de carga inicial</label>
+      <select id="f-nivel"><option value="bajo">Bajo — comenzar gradualmente</option><option value="medio" selected>Medio — progresión estándar</option><option value="alto">Alto — carga aumentada</option></select>
+    </div>
+    <div class="as-btn-row">
+      <button class="as-btn-back" onclick="irPaso(3)">← Atrás</button>
+      <button class="as-btn-next" onclick="generar()">🤖 Generar mi plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generando -->
+<div id="panel-generando" style="display:none" class="as-generating">
+  <div class="as-gen-icon">🤖</div>
+  <div class="as-gen-title">Claude está creando tu plan personalizado</div>
+  <div class="as-gen-sub">Analizando tu perfil y diseñando los ejercicios...<br>Esto puede tardar 20-40 segundos.</div>
+  <div class="as-loader"></div>
+  <div class="as-gen-steps">
+    <div class="as-gen-step act">📋 Procesando tu perfil</div>
+    <div class="as-gen-step">🧠 Llamando a Claude IA</div>
+    <div class="as-gen-step">💪 Generando ejercicios personalizados</div>
+    <div class="as-gen-step">📥 Cargando tu plan</div>
+  </div>
+</div>
+
+<!-- Resultado -->
+<div id="panel-resultado" style="display:none" class="as-result">
+  <div class="as-result-icon" id="res-icon">✓</div>
+  <div class="as-result-title" id="res-title"></div>
+  <div class="as-result-sub" id="res-sub"></div>
+  <div class="as-result-btns">
+    <a href="/app" class="as-btn-next" id="res-btn-app" style="display:none;text-decoration:none;text-align:center">🎯 Ver mi plan →</a>
+    <button id="res-btn-retry" onclick="resetFormulario()" class="as-btn-back" style="display:none">Intentar de nuevo</button>
+  </div>
+</div>
+
+<script>
+const UID = {{ usuario.id }};
+
+function irPaso(n){
+  document.querySelectorAll('.as-panel').forEach(p=>p.style.display='none');
+  const panel=document.getElementById(`panel-${n}`);
+  if(panel) panel.style.display='block';
+  document.querySelectorAll('.as-step').forEach((s,i)=>{s.classList.toggle('act',i<n);s.classList.toggle('done',i<n-1);});
+  if(n===2) calcIMC();
+  if(n===2) calcFCmax();
+  window.scrollTo(0,0);
+}
+
+function siguiente(paso){if(!validarPaso(paso))return;irPaso(paso+1);}
+
+function validarPaso(paso){
+  const errs=[];
+  if(paso===1){if(!v('f-nombre'))errs.push('Nombre requerido');if(!v('f-edad'))errs.push('Edad requerida');if(!v('f-sexo'))errs.push('Sexo requerido');if(!v('f-peso'))errs.push('Peso requerido');if(!v('f-estatura'))errs.push('Estatura requerida');}
+  if(paso===2){if(!v('f-lesiones'))errs.push('Indicar lesiones o escribir "ninguna"');if(!v('f-actividad'))errs.push('Nivel de actividad requerido');}
+  if(paso===4){if(!v('f-objetivo'))errs.push('Objetivo requerido');if(!v('f-estilo'))errs.push('Estilo requerido');}
+  if(errs.length>0){alert(errs.join('\n'));return false;}
+  return true;
+}
+
+function v(id){const el=document.getElementById(id);return el&&el.value.trim();}
+
+document.addEventListener('input',function(e){
+  if(['f-peso','f-estatura'].includes(e.target.id))calcIMC();
+  if(['f-edad','f-fcr'].includes(e.target.id))calcFCmax();
+});
+
+function calcIMC(){
+  const peso=parseFloat(v('f-peso')||0),est=parseFloat(v('f-estatura')||0);
+  if(!peso||!est)return;
+  const imc=(peso/((est/100)**2)).toFixed(1);
+  const cat=imc<18.5?'Bajo peso':imc<25?'Normal':imc<30?'Sobrepeso':'Obesidad';
+  document.getElementById('imc-preview').innerHTML=`IMC: <strong>${imc}</strong> — ${cat}`;
+}
+
+function calcFCmax(){
+  const edad=parseInt(v('f-edad')||0);if(!edad)return;
+  const fcmax=Math.round(208-0.7*edad);
+  document.getElementById('fcmax-preview').innerHTML=`<strong>FC máx estimada: ${fcmax} bpm</strong>`;
+}
+
+function recolectarDatos(){
+  const equipo=[...document.querySelectorAll('.as-checks input:checked')].map(c=>c.value);
+  const objetivo=v('f-objetivo'),detalle=v('f-objetivo-detalle');
+  return {
+    nombre:v('f-nombre'),edad:v('f-edad'),sexo:v('f-sexo'),
+    peso:parseFloat(v('f-peso')),estatura:parseFloat(v('f-estatura')),
+    fcr:v('f-fcr')||'',presion:v('f-presion')||'',
+    lesiones:v('f-lesiones'),nivel_actividad:v('f-actividad'),
+    equipamiento:equipo,lugar:v('f-lugar'),espacio:v('f-espacio'),
+    objetivo:detalle?`${objetivo} — ${detalle}`:objetivo,
+    estilo:v('f-estilo'),dias_semana:parseInt(v('f-dias')),
+    tiempo_sesion:v('f-tiempo'),dias_descanso:'no especificados',
+    nivel_inicial:v('f-nivel'),
+  };
+}
+
+async function generar(){
+  if(!validarPaso(4))return;
+  const datos=recolectarDatos();
+  document.getElementById('form-wrap').style.display='none';
+  document.getElementById('panel-generando').style.display='block';
+  window.scrollTo(0,0);
+  const steps=document.querySelectorAll('.as-gen-step');
+  let si=0;
+  const t=setInterval(()=>{steps.forEach((s,i)=>s.classList.toggle('act',i===si));si=Math.min(si+1,steps.length-1);},8000);
+  try{
+    const res=await fetch(`/api/assessment/${UID}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(datos)});
+    clearInterval(t);
+    const data=await res.json();
+    document.getElementById('panel-generando').style.display='none';
+    document.getElementById('panel-resultado').style.display='block';
+    if(res.ok){
+      document.getElementById('res-icon').textContent='🎉';
+      document.getElementById('res-title').textContent='¡Tu plan está listo!';
+      document.getElementById('res-sub').textContent=`${data.ejercicios_cargados} ejercicios cargados · Nivel: ${datos.nivel_inicial}`;
+      document.getElementById('res-btn-app').style.display='block';
+    } else {
+      document.getElementById('res-icon').textContent='⚠';
+      document.getElementById('res-title').textContent='Error al generar el plan';
+      document.getElementById('res-sub').textContent=data.error||'Error desconocido';
+      document.getElementById('res-btn-retry').style.display='block';
+    }
+  }catch(e){
+    clearInterval(t);
+    document.getElementById('panel-generando').style.display='none';
+    document.getElementById('panel-resultado').style.display='block';
+    document.getElementById('res-icon').textContent='⚠';
+    document.getElementById('res-title').textContent='Error de conexión';
+    document.getElementById('res-sub').textContent=e.message;
+    document.getElementById('res-btn-retry').style.display='block';
+  }
+}
+
+function mostrarFormulario(){
+  document.querySelector('.as-existing').style.display='none';
+  document.getElementById('form-wrap').style.display='block';
+}
+
+function resetFormulario(){
+  document.getElementById('panel-resultado').style.display='none';
+  document.getElementById('form-wrap').style.display='block';
+  irPaso(1);
+}
+</script>
+</body>
+</html>

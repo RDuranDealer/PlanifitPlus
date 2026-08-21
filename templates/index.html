@@ -10,14 +10,10 @@
 <body class="selector-body">
 
 <div class="selector-wrap">
-  <div class="selector-logo">🎾</div>
-  <h1 class="selector-title">RPG Tenis</h1>
+  <div class="selector-logo">🏋️</div>
+  <h1 class="selector-title">PlanifiT</h1>
   <p class="selector-sub">¿Quién entrena hoy?</p>
-
-  <div class="usuarios-grid" id="usuarios-grid">
-    <div class="loading-msg">Cargando...</div>
-  </div>
-
+  <div class="usuarios-grid" id="usuarios-grid"><div class="loading-msg" style="color:#888;grid-column:1/-1">Cargando...</div></div>
   <button class="nuevo-btn" onclick="mostrarNuevoUsuario()">+ Nuevo usuario</button>
 </div>
 
@@ -44,7 +40,7 @@
     <h3 class="modal-title">Nuevo usuario</h3>
     <div class="avatar-selector" id="avatar-selector"></div>
     <input class="modal-input" type="text" id="nuevo-nombre" placeholder="Tu nombre" maxlength="30">
-    <input class="modal-input" type="password" id="nuevo-pin" placeholder="PIN (opcional, 4 dígitos)" maxlength="4" inputmode="numeric">
+    <input class="modal-input" type="password" id="nuevo-pin" placeholder="PIN opcional (4 dígitos)" maxlength="4" inputmode="numeric">
     <div class="pin-error" id="nuevo-error" style="display:none"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="modal-cancel" onclick="cerrarModal()" style="flex:1">Cancelar</button>
@@ -53,127 +49,128 @@
   </div>
 </div>
 
+<!-- Modal Assessment post-creación -->
+<div class="modal-overlay" id="modal-assessment" style="display:none">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">🤖</div>
+    <h3 class="modal-title">¡Usuario creado!</h3>
+    <p style="font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.6">
+      ¿Quieres crear tu <strong style="color:#fff">plan de entrenamiento personalizado</strong> ahora?<br>
+      Claude te hará unas preguntas y generará tu rutina en menos de 1 minuto.
+    </p>
+    <button class="cbtn on" onclick="irAlAssessment()" style="margin-bottom:8px">🎯 Sí, crear mi plan ahora</button>
+    <button class="modal-cancel" onclick="irAlApp()">No, entrar sin plan</button>
+  </div>
+</div>
+
 <script>
-const AVATARES = ['🎾','💪','🏃','⚡','🔥','🦁','🐯','🦅','🌟','⚽'];
-let avatarSeleccionado = '🎾';
-let usuarioLogin = null;
+const AVATARES=['🎾','💪','🏃','⚡','🔥','🦁','🐯','🦅','🌟','⚽'];
+let avatarSeleccionado='💪', usuarioLogin=null, nuevoUsuarioId=null;
 
-async function cargarUsuarios() {
-  const res = await fetch('/api/usuarios');
-  const usuarios = await res.json();
-  const grid = document.getElementById('usuarios-grid');
-
-  if (usuarios.length === 0) {
-    grid.innerHTML = '<p style="color:var(--t2);font-size:14px;text-align:center;grid-column:1/-1">Aún no hay usuarios.<br>Crea el primero.</p>';
+async function cargarUsuarios(){
+  const res=await fetch('/api/usuarios');
+  const usuarios=await res.json();
+  const grid=document.getElementById('usuarios-grid');
+  if(usuarios.length===0){
+    grid.innerHTML='<p style="color:#888;font-size:14px;text-align:center;grid-column:1/-1">Aún no hay usuarios.<br>Crea el primero.</p>';
     return;
   }
-
-  grid.innerHTML = usuarios.map(u => `
-    <div class="usuario-card" onclick="seleccionarUsuario(${u.id}, '${u.nombre}', '${u.avatar}', ${u.tiene_pin})">
+  grid.innerHTML=usuarios.map(u=>`
+    <div class="usuario-card" onclick="seleccionarUsuario(${u.id},'${u.nombre}','${u.avatar}',${u.tiene_pin})">
       <div class="usuario-avatar">${u.avatar}</div>
       <div class="usuario-nombre">${u.nombre}</div>
-      ${u.tiene_pin ? '<div class="usuario-pin-badge">🔒</div>' : ''}
-    </div>
-  `).join('');
+      ${u.tiene_pin?'<div class="usuario-pin-badge">🔒</div>':''}
+    </div>`).join('');
 }
 
-function seleccionarUsuario(id, nombre, avatar, tiene_pin) {
-  usuarioLogin = {id, nombre, avatar};
-  if (tiene_pin) {
-    document.getElementById('pin-avatar').textContent = avatar;
-    document.getElementById('pin-nombre').textContent = nombre;
-    document.getElementById('pin-error').style.display = 'none';
-    ['p1','p2','p3','p4'].forEach(pid => document.getElementById(pid).value = '');
-    document.getElementById('modal-pin').style.display = 'flex';
+function seleccionarUsuario(id,nombre,avatar,tiene_pin){
+  usuarioLogin={id,nombre,avatar};
+  if(tiene_pin){
+    document.getElementById('pin-avatar').textContent=avatar;
+    document.getElementById('pin-nombre').textContent=nombre;
+    document.getElementById('pin-error').style.display='none';
+    ['p1','p2','p3','p4'].forEach(pid=>document.getElementById(pid).value='');
+    document.getElementById('modal-pin').style.display='flex';
     document.getElementById('p1').focus();
     setupPinInputs();
-  } else {
-    hacerLogin(id, '');
-  }
+  } else { hacerLogin(id,''); }
 }
 
-function setupPinInputs() {
-  const inputs = ['p1','p2','p3','p4'].map(id => document.getElementById(id));
-  inputs.forEach((inp, i) => {
-    inp.oninput = () => {
-      if (inp.value && i < 3) inputs[i+1].focus();
-      if (inputs.every(x => x.value)) submitPin();
-    };
-    inp.onkeydown = (e) => {
-      if (e.key === 'Backspace' && !inp.value && i > 0) inputs[i-1].focus();
-    };
+function setupPinInputs(){
+  const inputs=['p1','p2','p3','p4'].map(id=>document.getElementById(id));
+  inputs.forEach((inp,i)=>{
+    inp.oninput=()=>{if(inp.value&&i<3)inputs[i+1].focus();if(inputs.every(x=>x.value))submitPin();};
+    inp.onkeydown=(e)=>{if(e.key==='Backspace'&&!inp.value&&i>0)inputs[i-1].focus();};
   });
 }
 
-function submitPin() {
-  const pin = ['p1','p2','p3','p4'].map(id => document.getElementById(id).value).join('');
-  hacerLogin(usuarioLogin.id, pin);
+function submitPin(){
+  const pin=['p1','p2','p3','p4'].map(id=>document.getElementById(id).value).join('');
+  hacerLogin(usuarioLogin.id,pin);
 }
 
-async function hacerLogin(uid, pin) {
-  const res = await fetch(`/api/usuarios/${uid}/login`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({pin})
-  });
-  if (res.ok) {
-    window.location.href = '/app';
-  } else {
-    document.getElementById('pin-error').style.display = 'block';
-    ['p1','p2','p3','p4'].forEach(pid => document.getElementById(pid).value = '');
+async function hacerLogin(uid,pin){
+  const res=await fetch(`/api/usuarios/${uid}/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+  if(res.ok){window.location.href='/app';}
+  else{
+    document.getElementById('pin-error').style.display='block';
+    ['p1','p2','p3','p4'].forEach(pid=>document.getElementById(pid).value='');
     document.getElementById('p1').focus();
   }
 }
 
-function mostrarNuevoUsuario() {
-  const sel = document.getElementById('avatar-selector');
-  sel.innerHTML = AVATARES.map(a => `
-    <span class="avatar-opt ${a===avatarSeleccionado?'act':''}" onclick="selectAvatar('${a}', this)">${a}</span>
-  `).join('');
-  document.getElementById('nuevo-nombre').value = '';
-  document.getElementById('nuevo-pin').value = '';
-  document.getElementById('nuevo-error').style.display = 'none';
-  document.getElementById('modal-nuevo').style.display = 'flex';
+function mostrarNuevoUsuario(){
+  const sel=document.getElementById('avatar-selector');
+  sel.innerHTML=AVATARES.map(a=>`<span class="avatar-opt${a===avatarSeleccionado?' act':''}" onclick="selectAvatar('${a}',this)">${a}</span>`).join('');
+  document.getElementById('nuevo-nombre').value='';
+  document.getElementById('nuevo-pin').value='';
+  document.getElementById('nuevo-error').style.display='none';
+  document.getElementById('modal-nuevo').style.display='flex';
   document.getElementById('nuevo-nombre').focus();
 }
 
-function selectAvatar(a, el) {
-  avatarSeleccionado = a;
-  document.querySelectorAll('.avatar-opt').forEach(x => x.classList.remove('act'));
+function selectAvatar(a,el){
+  avatarSeleccionado=a;
+  document.querySelectorAll('.avatar-opt').forEach(x=>x.classList.remove('act'));
   el.classList.add('act');
 }
 
-async function crearUsuario() {
-  const nombre = document.getElementById('nuevo-nombre').value.trim();
-  const pin    = document.getElementById('nuevo-pin').value.trim();
-  const errEl  = document.getElementById('nuevo-error');
-
-  if (!nombre) { errEl.textContent='El nombre es requerido'; errEl.style.display='block'; return; }
-  if (pin && (!/^\d{4}$/.test(pin))) { errEl.textContent='El PIN debe ser de 4 dígitos'; errEl.style.display='block'; return; }
-
-  const res = await fetch('/api/usuarios', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({nombre, avatar: avatarSeleccionado, pin: pin||null})
-  });
-
-  if (res.ok) {
+async function crearUsuario(){
+  const nombre=document.getElementById('nuevo-nombre').value.trim();
+  const pin=document.getElementById('nuevo-pin').value.trim();
+  const errEl=document.getElementById('nuevo-error');
+  if(!nombre){errEl.textContent='El nombre es requerido';errEl.style.display='block';return;}
+  if(pin&&!/^\d{4}$/.test(pin)){errEl.textContent='El PIN debe ser de 4 dígitos';errEl.style.display='block';return;}
+  const res=await fetch('/api/usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre,avatar:avatarSeleccionado,pin:pin||null})});
+  if(res.ok){
+    const data=await res.json();
+    nuevoUsuarioId=data.id;
+    // Login automático
+    await fetch(`/api/usuarios/${data.id}/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:pin||''})});
     cerrarModal();
-    cargarUsuarios();
+    // Mostrar modal de assessment
+    document.getElementById('modal-assessment').style.display='flex';
   } else {
-    const data = await res.json();
-    errEl.textContent = data.error || 'Error al crear usuario';
-    errEl.style.display = 'block';
+    const data=await res.json();
+    errEl.textContent=data.error||'Error al crear usuario';
+    errEl.style.display='block';
   }
 }
 
-function cerrarModal() {
-  document.getElementById('modal-pin').style.display = 'none';
-  document.getElementById('modal-nuevo').style.display = 'none';
+function irAlAssessment(){
+  if(nuevoUsuarioId) window.location.href=`/assessment-usuario/${nuevoUsuarioId}`;
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+function irAlApp(){
+  window.location.href='/app';
+}
 
+function cerrarModal(){
+  document.getElementById('modal-pin').style.display='none';
+  document.getElementById('modal-nuevo').style.display='none';
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarModal();});
 cargarUsuarios();
 </script>
 </body>

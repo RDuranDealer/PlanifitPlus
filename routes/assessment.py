@@ -1,6 +1,6 @@
 import os, json, re, anthropic
 from flask import Blueprint, jsonify, request, render_template, session
-from models import db, Usuario, Assessment, Ejercicio, Config
+from models import db, Usuario, Assessment, Ejercicio, Config, SistemaConfig
 
 bp = Blueprint('assessment', __name__)
 
@@ -196,10 +196,10 @@ def crear_assessment(uid):
         perfil_prompt = construir_prompt(datos)
         prompt_completo = f"{SKILL_PROMPT}\n\n{perfil_prompt}\n\nGenera ahora la rutina semanal completa en formato MD."
 
-        # Llamar a Claude API
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        # Llamar a Claude API — leer desde BD primero, luego variable de entorno
+        api_key = SistemaConfig.get('ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_API_KEY')
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY no configurada en variables de entorno")
+            raise ValueError("API Key de Claude no configurada. Ve a Admin → Sistema para configurarla.")
 
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
@@ -273,3 +273,17 @@ def estado_assessment(uid, aid):
     """Consulta el estado de un assessment (polling desde el frontend)."""
     asmt = Assessment.query.filter_by(id=aid, usuario_id=uid).first_or_404()
     return jsonify(asmt.to_dict())
+
+
+# ── Ruta de assessment para usuarios normales (sin token admin) ───────────────
+
+@bp.route('/assessment-usuario/<int:uid>')
+def assessment_usuario(uid):
+    """Assessment accesible desde la app del usuario (no desde admin)."""
+    from flask import session, redirect, url_for
+    u = Usuario.query.get_or_404(uid)
+    # Verificar que el usuario en sesión coincide
+    if session.get('usuario_id') != uid:
+        return redirect(url_for('index'))
+    assessment_activo = Assessment.query.filter_by(usuario_id=uid, activo=True).first()
+    return render_template('assessment_usuario.html', usuario=u, assessment_activo=assessment_activo)

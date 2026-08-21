@@ -76,7 +76,7 @@ def cargar_ejercicios_usuario(usuario_id):
 
 
 def seed():
-    """Llamar desde dentro de un app_context ya activo."""
+    """Llamar desde dentro de un app_context ya activo (llamado por app.py)."""
     db.create_all()
 
     if Usuario.query.count() > 0:

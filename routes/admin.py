@@ -142,3 +142,50 @@ def md_template():
 5. Baja lentamente vértebra por vértebra.
 """
     return jsonify({'template':t})
+
+
+# ── Sistema — API Key y configuración global ──────────────────────────────────
+
+@bp.route('/admin/<token>/sistema')
+def admin_sistema(token):
+    check(token)
+    return render_template('admin/sistema.html', token=token)
+
+@bp.route('/api/admin/sistema/apikey', methods=['POST'])
+def set_apikey():
+    check_header()
+    from models import SistemaConfig
+    data = request.get_json()
+    key  = data.get('api_key', '').strip()
+    if not key:
+        return jsonify({'error': 'API Key requerida'}), 400
+    if not key.startswith('sk-ant-'):
+        return jsonify({'error': 'La key debe empezar con sk-ant-'}), 400
+    SistemaConfig.set('ANTHROPIC_API_KEY', key, 'Clave de API de Anthropic Claude')
+    return jsonify({'ok': True, 'preview': key[:20] + '...' + key[-4:]})
+
+@bp.route('/api/admin/sistema/apikey', methods=['GET'])
+def get_apikey():
+    check_header()
+    from models import SistemaConfig
+    import os
+    key_bd  = SistemaConfig.get('ANTHROPIC_API_KEY')
+    key_env = os.environ.get('ANTHROPIC_API_KEY')
+    key_activa = key_bd or key_env
+    return jsonify({
+        'tiene_key_bd':  bool(key_bd),
+        'tiene_key_env': bool(key_env),
+        'preview':       (key_activa[:20] + '...' + key_activa[-4:]) if key_activa else None,
+        'fuente':        'base_de_datos' if key_bd else ('entorno' if key_env else 'ninguna'),
+    })
+
+@bp.route('/api/admin/sistema/apikey', methods=['DELETE'])
+def del_apikey():
+    check_header()
+    from models import SistemaConfig
+    row = SistemaConfig.query.filter_by(clave='ANTHROPIC_API_KEY').first()
+    if row:
+        from models import db
+        db.session.delete(row)
+        db.session.commit()
+    return jsonify({'ok': True})

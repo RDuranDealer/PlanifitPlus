@@ -125,3 +125,32 @@ class Config(db.Model):
             row=cls(usuario_id=usuario_id,clave=clave,valor=str(valor),descripcion=descripcion)
             db.session.add(row)
         db.session.commit()
+
+
+class SistemaConfig(db.Model):
+    """Configuración global del sistema — no ligada a usuario."""
+    __tablename__ = 'sistema_config'
+    id          = db.Column(db.Integer, primary_key=True)
+    clave       = db.Column(db.String(80), unique=True, nullable=False)
+    valor       = db.Column(db.Text, nullable=False)
+    descripcion = db.Column(db.String(300))
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @classmethod
+    def get(cls, clave, default=None):
+        try:
+            row = cls.query.filter_by(clave=clave).first()
+            return row.valor if row else default
+        except:
+            return default
+
+    @classmethod
+    def set(cls, clave, valor, descripcion=None):
+        row = cls.query.filter_by(clave=clave).first()
+        if row:
+            row.valor = str(valor)
+            row.updated_at = datetime.utcnow()
+        else:
+            row = cls(clave=clave, valor=str(valor), descripcion=descripcion)
+            db.session.add(row)
+        db.session.commit()

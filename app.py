@@ -49,6 +49,11 @@ def create_app():
             return redirect(url_for('index'))
         return render_template('historial.html')
 
+    @app.route('/assessment-usuario/<int:uid>')
+    def assessment_usuario_view(uid):
+        from routes.assessment import assessment_usuario
+        return assessment_usuario(uid)
+
     @app.route('/configuracion')
     def configuracion():
         if not session.get('usuario_id'):

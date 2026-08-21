@@ -1,17 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Configuración — RPG Tenis{% endblock %}
+{% block title %}Configuración — PlanifiT{% endblock %}
 {% block content %}
 <div class="hdr"><div class="atitle">Configuración</div><div class="asub">Ajusta tu plan de entrenamiento</div></div>
 <div class="cnt" id="main-content"><div class="loading-msg">Cargando...</div></div>
+
+<!-- Popup confirmación nuevo assessment -->
+<div id="popup-assessment" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--s);border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+    <div style="font-size:16px;font-weight:600;color:var(--t);margin-bottom:8px">¿Crear nuevo plan?</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:20px;line-height:1.6">
+      Esto <strong>eliminará tu plan actual</strong> y todos tus ejercicios.<br>
+      Claude generará una rutina completamente nueva basada en tu perfil actualizado.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="cerrarPopup()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--br2);background:transparent;color:var(--t2);font-size:14px;cursor:pointer">Cancelar</button>
+      <button onclick="irAlAssessment()" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--pur);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Sí, crear nuevo plan</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-let cfg={};
+let cfg={},usuarioId=null;
+
 async function load(){
+  const sr=await fetch('/api/usuarios/session');
+  const sd=await sr.json();
+  if(!sd.usuario){window.location.href='/';return;}
+  usuarioId=sd.usuario.id;
   const r=await fetch('/api/config');
   if(r.status===401){window.location.href='/';return;}
-  cfg=await r.json();renderConfig();
+  cfg=await r.json();
+  renderConfig();
 }
+
 function renderConfig(){
   const niveles=['bajo','medio','alto','avanzado'],fases=['1','2','3'];
   const desc={bajo:'Rehabilitación base',medio:'Progresión estándar',alto:'Carga aumentada',avanzado:'Máxima intensidad'};
@@ -40,6 +64,18 @@ function renderConfig(){
         <span style="font-size:12px;color:var(--t2)">de 4 semanas por fase</span>
       </div>
     </div>
+
+    <!-- BOTÓN ASSESSMENT -->
+    <div class="sec" style="margin-bottom:10px;border-color:var(--pur)">
+      <div class="sct" style="color:var(--purt)">Plan personalizado con IA</div>
+      <p style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.5">
+        Responde unas preguntas sobre tu perfil y Claude generará una rutina completamente personalizada para ti.
+      </p>
+      <button onclick="mostrarPopupAssessment()" style="width:100%;padding:13px;border-radius:12px;border:none;background:var(--pur);color:#fff;font-size:14px;font-weight:600;cursor:pointer">
+        🤖 Crear nuevo plan con IA
+      </button>
+    </div>
+
     <div class="alrt">
       <div class="alrtt">⚠ Señales de alerta:</div>
       <div class="alrti">· Dolor en rodilla mayor a 3/10</div>
@@ -48,10 +84,22 @@ function renderConfig(){
     </div>
     <div id="toast" class="toast" style="display:none"></div>`;
 }
+
 async function setCarga(n){await fetch('/api/config/carga',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nivel:n})});cfg.carga_nivel=n;renderConfig();toast(`Carga: ${n}`);}
 async function setFase(f){await fetch('/api/config/fase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fase:f})});cfg.fase_actual=f;renderConfig();toast(`Fase: ${f}`);}
 async function setSemana(s){if(s<1)return;await fetch('/api/config/semana',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({semana:s})});cfg.semana_actual=String(s);renderConfig();toast(`Semana: ${s}`);}
 function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2000);}
+
+function mostrarPopupAssessment(){
+  document.getElementById('popup-assessment').style.display='flex';
+}
+function cerrarPopup(){
+  document.getElementById('popup-assessment').style.display='none';
+}
+function irAlAssessment(){
+  if(usuarioId) window.location.href=`/assessment-usuario/${usuarioId}`;
+}
+
 load();
 </script>
 {% endblock %}
