@@ -1,137 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Configuración — RPG Tenis{% endblock %}
-
 {% block content %}
-<div class="hdr">
-  <div class="atitle">Configuración</div>
-  <div class="asub">Ajusta tu plan de entrenamiento</div>
-</div>
-
-<div class="cnt" id="main-content">
-  <div class="loading-msg">Cargando configuración...</div>
-</div>
+<div class="hdr"><div class="atitle">Configuración</div><div class="asub">Ajusta tu plan de entrenamiento</div></div>
+<div class="cnt" id="main-content"><div class="loading-msg">Cargando...</div></div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-let configActual = {};
-
-async function cargarConfig() {
-  const res   = await fetch('/api/config');
-  configActual = await res.json();
-  renderConfig(configActual);
+let cfg={};
+async function load(){
+  const r=await fetch('/api/config');
+  if(r.status===401){window.location.href='/';return;}
+  cfg=await r.json();renderConfig();
 }
-
-function renderConfig(cfg) {
-  const niveles = ['bajo', 'medio', 'alto', 'avanzado'];
-  const fases   = ['1', '2', '3'];
-
-  document.getElementById('main-content').innerHTML = `
-    <div class="pgt">Plan actual</div>
-    <div class="pgs">Fase ${cfg.fase_actual} · Semana ${cfg.semana_actual} · Carga ${cfg.carga_nivel}</div>
-
+function renderConfig(){
+  const niveles=['bajo','medio','alto','avanzado'],fases=['1','2','3'];
+  const desc={bajo:'Rehabilitación base',medio:'Progresión estándar',alto:'Carga aumentada',avanzado:'Máxima intensidad'};
+  document.getElementById('main-content').innerHTML=`
     <div class="sec" style="margin-bottom:10px">
       <div class="sct">Nivel de carga</div>
-      <p style="font-size:12px;color:var(--t2);margin-bottom:12px">
-        Controla las series, repeticiones y peso de todos los ejercicios.
-      </p>
-      <div class="nivel-grid">
-        ${niveles.map(n => `
-          <button class="nivel-btn ${cfg.carga_nivel === n ? 'act' : ''}" onclick="setCarga('${n}')">
-            <span class="nivel-name">${n.charAt(0).toUpperCase() + n.slice(1)}</span>
-            <span class="nivel-desc">${descripcionNivel(n)}</span>
-          </button>
-        `).join('')}
-      </div>
+      <div class="nivel-grid">${niveles.map(n=>`
+        <button class="nivel-btn${cfg.carga_nivel===n?' act':''}" onclick="setCarga('${n}')">
+          <span class="nivel-name">${n.charAt(0).toUpperCase()+n.slice(1)}</span>
+          <span class="nivel-desc">${desc[n]}</span>
+        </button>`).join('')}</div>
     </div>
-
     <div class="sec" style="margin-bottom:10px">
       <div class="sct">Fase del programa</div>
       <div style="display:flex;gap:8px;margin-top:4px">
-        ${fases.map(f => `
-          <button class="fase-btn ${cfg.fase_actual === f ? 'act' : ''}" onclick="setFase('${f}')">
-            Fase ${f}
-          </button>
-        `).join('')}
+        ${fases.map(f=>`<button class="fase-btn${cfg.fase_actual===f?' act':''}" onclick="setFase('${f}')">Fase ${f}</button>`).join('')}
       </div>
-      <p style="font-size:11px;color:var(--t2);margin-top:10px">
-        Fase 1: Fundamentos · Fase 2: Progresión · Fase 3: Retorno completo
-      </p>
+      <p style="font-size:11px;color:var(--t2);margin-top:10px">Fase 1: Fundamentos · Fase 2: Progresión · Fase 3: Retorno completo</p>
     </div>
-
     <div class="sec" style="margin-bottom:10px">
       <div class="sct">Semana actual</div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
-        <button onclick="setSemana(${Math.max(1, parseInt(cfg.semana_actual)-1)})" class="cbtn" style="width:44px;padding:8px">−</button>
+        <button onclick="setSemana(${Math.max(1,parseInt(cfg.semana_actual)-1)})" class="cbtn" style="width:44px;padding:8px">−</button>
         <span style="font-size:24px;font-weight:600;color:var(--t);min-width:40px;text-align:center">${cfg.semana_actual}</span>
         <button onclick="setSemana(${parseInt(cfg.semana_actual)+1})" class="cbtn" style="width:44px;padding:8px">+</button>
         <span style="font-size:12px;color:var(--t2)">de 4 semanas por fase</span>
       </div>
     </div>
-
     <div class="alrt">
-      <div class="alrtt">⚠ Señales de alerta — detener si aparece:</div>
-      <div class="alrti">· Dolor en rodilla mayor a 3/10 durante cualquier ejercicio</div>
-      <div class="alrti">· Hormigueo o entumecimiento en brazos o manos (cervical)</div>
-      <div class="alrti">· Hinchazón visible de rodilla post-sesión</div>
+      <div class="alrtt">⚠ Señales de alerta:</div>
+      <div class="alrti">· Dolor en rodilla mayor a 3/10</div>
+      <div class="alrti">· Hormigueo o entumecimiento en brazos/manos</div>
+      <div class="alrti">· Hinchazón visible en rodilla post-sesión</div>
     </div>
-
-    <div id="toast" class="toast" style="display:none"></div>
-  `;
+    <div id="toast" class="toast" style="display:none"></div>`;
 }
-
-function descripcionNivel(n) {
-  const d = {
-    bajo:     'Rehabilitación base',
-    medio:    'Progresión estándar',
-    alto:     'Carga aumentada',
-    avanzado: 'Máxima intensidad',
-  };
-  return d[n] || '';
-}
-
-async function setCarga(nivel) {
-  await fetch('/api/config/carga', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({nivel})
-  });
-  configActual.carga_nivel = nivel;
-  renderConfig(configActual);
-  mostrarToast(`Carga actualizada: ${nivel}`);
-}
-
-async function setFase(fase) {
-  await fetch('/api/config/fase', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({fase})
-  });
-  configActual.fase_actual = fase;
-  renderConfig(configActual);
-  mostrarToast(`Fase actualizada: ${fase}`);
-}
-
-async function setSemana(semana) {
-  if (semana < 1) return;
-  await fetch('/api/config/semana', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({semana})
-  });
-  configActual.semana_actual = String(semana);
-  renderConfig(configActual);
-  mostrarToast(`Semana actualizada: ${semana}`);
-}
-
-function mostrarToast(msg) {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 2500);
-}
-
-cargarConfig();
+async function setCarga(n){await fetch('/api/config/carga',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nivel:n})});cfg.carga_nivel=n;renderConfig();toast(`Carga: ${n}`);}
+async function setFase(f){await fetch('/api/config/fase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fase:f})});cfg.fase_actual=f;renderConfig();toast(`Fase: ${f}`);}
+async function setSemana(s){if(s<1)return;await fetch('/api/config/semana',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({semana:s})});cfg.semana_actual=String(s);renderConfig();toast(`Semana: ${s}`);}
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2000);}
+load();
 </script>
 {% endblock %}

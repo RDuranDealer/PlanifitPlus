@@ -1,73 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Historial — RPG Tenis{% endblock %}
-
 {% block content %}
-<div class="hdr">
-  <div class="atitle">Historial</div>
-  <div class="asub">Registro acumulado guardado en la base de datos</div>
-</div>
-
-<div class="cnt" id="main-content">
-  <div class="loading-msg">Cargando historial...</div>
-</div>
+<div class="hdr"><div class="atitle">Historial</div><div class="asub">Registro acumulado en base de datos</div></div>
+<div class="cnt" id="main-content"><div class="loading-msg">Cargando...</div></div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-async function cargarHistorial() {
-  const [histRes, statsRes] = await Promise.all([
-    fetch('/api/historial'),
-    fetch('/api/stats/semana')
-  ]);
-  const hist  = await histRes.json();
-  const stats = await statsRes.json();
+async function load() {
+  const [h, s] = await Promise.all([fetch('/api/historial'), fetch('/api/stats/semana')]);
+  if (h.status===401||s.status===401){window.location.href='/';return;}
+  const hist=await h.json(), stats=await s.json();
 
-  const cnt = document.getElementById('main-content');
-
-  const filasHTML = hist.semanas.length === 0
-    ? '<div style="text-align:center;padding:20px 0;color:var(--t3);font-size:13px">Aún sin semanas guardadas.<br>Completa tu primera sesión para empezar el registro.</div>'
-    : [...hist.semanas].reverse().map((s, i, arr) => {
-        const [yr, wn] = s.semana.split('-W');
-        return `<div class="hrow" style="${i===arr.length-1?'border-bottom:none':''}">
-          <div class="hwk">Sem ${wn} · ${yr}</div>
+  const filas = hist.semanas.length===0
+    ? '<div style="text-align:center;padding:20px;color:var(--t3);font-size:13px">Aún sin semanas guardadas.</div>'
+    : [...hist.semanas].reverse().map((s,i,a)=>{
+        const[yr,wn]=s.semana.split('-W');
+        return `<div class="hrow" style="${i===a.length-1?'border-bottom:none':''}">
+          <div class="hwk">Sem ${wn}·${yr}</div>
           <div class="hbw"><div class="hb" style="width:${Math.round(s.dias/7*100)}%"></div></div>
-          <div class="hval">${s.dias}/7</div>
-        </div>`;
+          <div class="hval">${s.dias}/7</div></div>`;
       }).join('');
 
-  cnt.innerHTML = `
-    <div class="pgt">Semana actual</div>
-    <div class="pgs">Progreso en curso</div>
+  document.getElementById('main-content').innerHTML=`
+    <div class="pgt">Semana actual</div><div class="pgs">Progreso en curso</div>
     <div class="sgrid" style="margin-bottom:16px">
       <div class="sc"><div class="sn" style="color:var(--pur)">${stats.dias_completados}</div><div class="sl">Días completados</div></div>
       <div class="sc"><div class="sn" style="color:var(--grn)">${stats.ejercicios_hechos}</div><div class="sl">Ejercicios hechos</div></div>
       <div class="sc"><div class="sn" style="color:var(--tea)">${stats.adherencia_pct}%</div><div class="sl">Adherencia</div></div>
       <div class="sc"><div class="sn" style="color:var(--amb)">${stats.dias_restantes}</div><div class="sl">Días restantes</div></div>
     </div>
-
-    <div class="pgt">Historial completo</div>
-    <div class="pgs">Últimas 12 semanas</div>
+    <div class="pgt">Historial</div><div class="pgs">Últimas 12 semanas</div>
     <div class="sgrid" style="margin-bottom:14px">
-      <div class="sc"><div class="sn" style="color:var(--pur)">${hist.total_semanas}</div><div class="sl">Semanas registradas</div></div>
-      <div class="sc"><div class="sn" style="color:var(--grn)">${hist.promedio}</div><div class="sl">Días prom/semana</div></div>
+      <div class="sc"><div class="sn" style="color:var(--pur)">${hist.total_semanas}</div><div class="sl">Semanas</div></div>
+      <div class="sc"><div class="sn" style="color:var(--grn)">${hist.promedio}</div><div class="sl">Días prom/sem</div></div>
       <div class="sc"><div class="sn" style="color:var(--amb)">${hist.mejor}/7</div><div class="sl">Mejor semana</div></div>
       <div class="sc"><div class="sn" style="color:var(--tea)">${hist.semanas_5plus}</div><div class="sl">Semanas ≥5 días</div></div>
     </div>
-
-    <div class="hcard">
-      <div class="hcardt">Registro por semana</div>
-      ${filasHTML}
-    </div>
-
-    <div class="phc">
-      <div class="pht">Fases de retorno al tenis</div>
-      <div class="prow"><div style="width:8px;height:8px;border-radius:50%;background:var(--grn);flex-shrink:0;margin-top:3px"></div><div class="ptxt"><strong>Fase 1 (sem 1–4):</strong> Activar VMO, glúteo, estabilidad base</div></div>
-      <div class="prow"><div style="width:8px;height:8px;border-radius:50%;background:var(--pur);flex-shrink:0;margin-top:3px"></div><div class="ptxt"><strong>Fase 2 (sem 5–8):</strong> Potencia, cambios de dirección, más tenis</div></div>
-      <div class="prow"><div style="width:8px;height:8px;border-radius:50%;background:#888780;flex-shrink:0;margin-top:3px"></div><div class="ptxt"><strong>Fase 3 (sem 9–12):</strong> Partidos completos sin dolor</div></div>
-    </div>
-  `;
+    <div class="hcard"><div class="hcardt">Registro por semana</div>${filas}</div>`;
 }
-
-cargarHistorial();
+load();
 </script>
 {% endblock %}

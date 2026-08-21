@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rutinas — Admin RPG Tenis</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="admin-wrap">
+  <div class="admin-hdr">
+    <a href="/admin/{{ token }}" class="back-link">← Volver</a>
+    <h1>📋 Cargar rutinas desde MD</h1>
+    <p>Pega el MD generado por Claude o súbelo como archivo</p>
+  </div>
+
+  <!-- Selector de usuario -->
+  <div class="admin-section">
+    <label class="admin-label">1. Selecciona el usuario</label>
+    <select id="usuario-select" class="admin-select">
+      <option value="">Cargando usuarios...</option>
+    </select>
+  </div>
+
+  <!-- Modo de carga -->
+  <div class="admin-section">
+    <label class="admin-label">2. Contenido MD</label>
+    <div class="tabs">
+      <button class="tab act" onclick="setTab('pegar', this)">Pegar texto</button>
+      <button class="tab" onclick="setTab('archivo', this)">Subir archivo</button>
+      <button class="tab" onclick="setTab('template', this)">Ver template</button>
+    </div>
+
+    <div id="tab-pegar">
+      <textarea id="md-content" class="admin-textarea" placeholder="Pega aquí el MD generado por Claude...&#10;&#10;# Rutina: Lunes — Cadena posterior&#10;## Sección: Postura RPG + core&#10;&#10;### Postura RPG en pared&#10;- base: 1×3 min&#10;- medio: 1×4 min&#10;..."></textarea>
+    </div>
+
+    <div id="tab-archivo" style="display:none">
+      <input type="file" id="md-file" accept=".md,.txt" class="admin-file-input">
+      <label for="md-file" class="admin-file-label">📁 Seleccionar archivo .md</label>
+      <div id="file-name" style="font-size:12px;color:var(--t2);margin-top:6px"></div>
+    </div>
+
+    <div id="tab-template" style="display:none">
+      <div class="template-box" id="template-content">Cargando template...</div>
+      <button class="admin-btn-sec" onclick="copiarTemplate()">Copiar template</button>
+    </div>
+  </div>
+
+  <!-- Acciones -->
+  <div class="admin-section">
+    <label class="admin-label">3. Acción</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="admin-btn-sec" onclick="previsualizar()">👁 Previsualizar</button>
+      <button class="admin-btn" onclick="cargar()">⬆ Cargar a base de datos</button>
+    </div>
+    <p style="font-size:11px;color:var(--t2);margin-top:6px">
+      ⚠ "Cargar" reemplaza todos los ejercicios del usuario seleccionado.
+    </p>
+  </div>
+
+  <!-- Resultado -->
+  <div id="resultado" style="display:none" class="admin-section">
+    <label class="admin-label">Resultado</label>
+    <div id="resultado-content"></div>
+  </div>
+</div>
+
+<script>
+const TOKEN = '{{ token }}';
+let tabActual = 'pegar';
+
+async function cargarUsuarios() {
+  const res = await fetch(`/api/admin/usuarios?token=${TOKEN}`);
+  const usuarios = await res.json();
+  const sel = document.getElementById('usuario-select');
+  sel.innerHTML = '<option value="">-- Selecciona usuario --</option>' +
+    usuarios.map(u => `<option value="${u.id}">${u.avatar} ${u.nombre} (${u.ejercicios_count} ejercicios)</option>`).join('');
+}
+
+async function cargarTemplate() {
+  const res = await fetch(`/api/admin/md-template?token=${TOKEN}`);
+  const data = await res.json();
+  document.getElementById('template-content').textContent = data.template;
+}
+
+function setTab(tab, btn) {
+  tabActual = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('act'));
+  btn.classList.add('act');
+  ['pegar','archivo','template'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t===tab ? 'block' : 'none';
+  });
+  if (tab === 'template') cargarTemplate();
+}
+
+function copiarTemplate() {
+  const txt = document.getElementById('template-content').textContent;
+  navigator.clipboard.writeText(txt).then(() => alert('Template copiado al portapapeles'));
+}
+
+document.getElementById('md-file').addEventListener('change', function() {
+  const file = this.files[0];
+  if (file) document.getElementById('file-name').textContent = file.name;
+});
+
+async function getContenido() {
+  if (tabActual === 'pegar') {
+    return document.getElementById('md-content').value;
+  } else if (tabActual === 'archivo') {
+    const file = document.getElementById('md-file').files[0];
+    if (!file) return null;
+    return await file.text();
+  }
+  return null;
+}
+
+async function previsualizar() {
+  const uid = document.getElementById('usuario-select').value;
+  if (!uid) { alert('Selecciona un usuario'); return; }
+  const contenido = await getContenido();
+  if (!contenido) { alert('Agrega contenido MD'); return; }
+
+  const res = await fetch(`/api/admin/usuarios/${uid}/rutina-md?token=${TOKEN}&preview=1`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({contenido})
+  });
+  const data = await res.json();
+
+  const div = document.getElementById('resultado');
+  const cnt = document.getElementById('resultado-content');
+  div.style.display = 'block';
+
+  if (!res.ok) {
+    cnt.innerHTML = `<div class="alrt"><div class="alrtt">Error</div><div class="alrti">${data.error}</div></div>`;
+    return;
+  }
+
+  cnt.innerHTML = `
+    <div class="bdg bg" style="margin-bottom:10px">${data.total} ejercicios encontrados</div>
+    <div class="hcard">
+      ${data.ejercicios.map(e => `
+        <div class="hrow">
+          <div style="flex:1">
+            <strong>${e.nombre}</strong>
+            <div style="font-size:11px;color:var(--t2)">Día ${e.dia_id} · ${e.seccion} · <span class="etag ${e.tag==='new'?'tnew':e.tag==='warn'?'twarn':'tkeep'}">${e.tag}</span></div>
+            <div style="font-size:11px;color:var(--t3)">base: ${e.base||'—'} · alto: ${e.alto||'—'}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function cargar() {
+  const uid = document.getElementById('usuario-select').value;
+  if (!uid) { alert('Selecciona un usuario'); return; }
+  const contenido = await getContenido();
+  if (!contenido) { alert('Agrega contenido MD'); return; }
+  if (!confirm('¿Reemplazar todos los ejercicios de este usuario?')) return;
+
+  const res = await fetch(`/api/admin/usuarios/${uid}/rutina-md?token=${TOKEN}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({contenido})
+  });
+  const data = await res.json();
+
+  const div = document.getElementById('resultado');
+  const cnt = document.getElementById('resultado-content');
+  div.style.display = 'block';
+
+  if (!res.ok) {
+    cnt.innerHTML = `<div class="alrt"><div class="alrtt">Error</div><div class="alrti">${data.error}</div></div>`;
+    return;
+  }
+
+  cnt.innerHTML = `<div class="bdg bg">✓ ${data.ejercicios_cargados} ejercicios cargados exitosamente</div>`;
+  cargarUsuarios();
+}
+
+cargarUsuarios();
+</script>
+</body>
+</html>

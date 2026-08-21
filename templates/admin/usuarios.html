@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Usuarios — Admin RPG Tenis</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="admin-wrap">
+  <div class="admin-hdr">
+    <a href="/admin/{{ token }}" class="back-link">← Volver</a>
+    <h1>👥 Usuarios</h1>
+  </div>
+
+  <div id="usuarios-list"><div class="loading-msg">Cargando...</div></div>
+
+  <div class="admin-section">
+    <label class="admin-label">Cargar rutina base (Rodrigo) a usuario</label>
+    <div style="display:flex;gap:8px">
+      <select id="uid-base" class="admin-select" style="flex:1"></select>
+      <button class="admin-btn" onclick="cargarBase()">Cargar</button>
+    </div>
+    <p style="font-size:11px;color:var(--t2);margin-top:6px">Carga todos los ejercicios RPG predeterminados al usuario seleccionado.</p>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+</div>
+
+<script>
+const TOKEN = '{{ token }}';
+
+async function cargarUsuarios() {
+  const res = await fetch(`/api/admin/usuarios?token=${TOKEN}`);
+  const usuarios = await res.json();
+
+  document.getElementById('usuarios-list').innerHTML = usuarios.map(u => `
+    <div class="admin-user-row">
+      <div class="admin-user-avatar">${u.avatar}</div>
+      <div class="admin-user-info">
+        <div class="admin-user-nombre">${u.nombre}</div>
+        <div class="admin-user-meta">${u.ejercicios_count} ejercicios · ${u.tiene_pin?'Con PIN':'Sin PIN'}</div>
+      </div>
+    </div>`).join('');
+
+  const sel = document.getElementById('uid-base');
+  sel.innerHTML = usuarios.map(u => `<option value="${u.id}">${u.avatar} ${u.nombre}</option>`).join('');
+}
+
+async function cargarBase() {
+  const uid = document.getElementById('uid-base').value;
+  if (!uid) return;
+  if (!confirm('¿Reemplazar todos los ejercicios de este usuario con la rutina base?')) return;
+  const res = await fetch(`/api/admin/usuarios/${uid}/rutina-base?token=${TOKEN}`, {method:'POST'});
+  const data = await res.json();
+  if (res.ok) { toast(`✓ ${data.ejercicios} ejercicios cargados`); cargarUsuarios(); }
+  else toast(`Error: ${data.error}`);
+}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
+
+cargarUsuarios();
+</script>
+</body>
+</html>

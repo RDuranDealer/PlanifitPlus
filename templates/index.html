@@ -1,174 +1,180 @@
-{% extends "base.html" %}
-{% block title %}RPG Tenis — Semana{% endblock %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>RPG Tenis — Seleccionar usuario</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/selector.css') }}">
+</head>
+<body class="selector-body">
 
-{% block content %}
-<div class="hdr">
-  <div class="hr">
-    <div>
-      <div class="atitle">RPG Tenis</div>
-      <div class="asub">Retorno al tenis sin dolor</div>
+<div class="selector-wrap">
+  <div class="selector-logo">🎾</div>
+  <h1 class="selector-title">RPG Tenis</h1>
+  <p class="selector-sub">¿Quién entrena hoy?</p>
+
+  <div class="usuarios-grid" id="usuarios-grid">
+    <div class="loading-msg">Cargando...</div>
+  </div>
+
+  <button class="nuevo-btn" onclick="mostrarNuevoUsuario()">+ Nuevo usuario</button>
+</div>
+
+<!-- Modal PIN -->
+<div class="modal-overlay" id="modal-pin" style="display:none">
+  <div class="modal">
+    <div class="modal-avatar" id="pin-avatar"></div>
+    <div class="modal-nombre" id="pin-nombre"></div>
+    <p class="modal-sub">Ingresa tu PIN</p>
+    <div class="pin-inputs">
+      <input class="pin-input" type="password" maxlength="1" inputmode="numeric" id="p1">
+      <input class="pin-input" type="password" maxlength="1" inputmode="numeric" id="p2">
+      <input class="pin-input" type="password" maxlength="1" inputmode="numeric" id="p3">
+      <input class="pin-input" type="password" maxlength="1" inputmode="numeric" id="p4">
     </div>
-    <div id="hdr-right" style="text-align:right">
-      <div class="wk-lbl">Esta semana</div>
-      <div class="wk-val" id="dias-count">—</div>
+    <div class="pin-error" id="pin-error" style="display:none">PIN incorrecto</div>
+    <button class="modal-cancel" onclick="cerrarModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- Modal Nuevo Usuario -->
+<div class="modal-overlay" id="modal-nuevo" style="display:none">
+  <div class="modal">
+    <h3 class="modal-title">Nuevo usuario</h3>
+    <div class="avatar-selector" id="avatar-selector"></div>
+    <input class="modal-input" type="text" id="nuevo-nombre" placeholder="Tu nombre" maxlength="30">
+    <input class="modal-input" type="password" id="nuevo-pin" placeholder="PIN (opcional, 4 dígitos)" maxlength="4" inputmode="numeric">
+    <div class="pin-error" id="nuevo-error" style="display:none"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="modal-cancel" onclick="cerrarModal()" style="flex:1">Cancelar</button>
+      <button class="cbtn on" onclick="crearUsuario()" style="flex:2;margin-top:0">Crear</button>
     </div>
   </div>
-  <div class="pw">
-    <div class="pb"><div class="pf" id="prog-fill" style="width:0%"></div></div>
-    <div class="pl" id="prog-lbl">0%</div>
-  </div>
 </div>
 
-<!-- Strip de días -->
-<div class="strip" id="day-strip">
-  <!-- Se genera con JS -->
-</div>
-
-<div class="cnt" id="main-content">
-  <div class="loading-msg">Cargando tu semana...</div>
-</div>
-{% endblock %}
-
-{% block scripts %}
 <script>
-const HOY_ID = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-let semanaData = null;
+const AVATARES = ['🎾','💪','🏃','⚡','🔥','🦁','🐯','🦅','🌟','⚽'];
+let avatarSeleccionado = '🎾';
+let usuarioLogin = null;
 
-async function cargarSemana() {
-  const res  = await fetch('/api/semana');
-  semanaData = await res.json();
-  renderStrip(semanaData);
-  renderDia(semanaData.hoy_dia_id);
-  actualizarHeader(semanaData);
-}
+async function cargarUsuarios() {
+  const res = await fetch('/api/usuarios');
+  const usuarios = await res.json();
+  const grid = document.getElementById('usuarios-grid');
 
-function actualizarHeader(data) {
-  const completados = data.dias.filter(d => d.completado).length;
-  const pct = Math.round(completados / 7 * 100);
-  document.getElementById('dias-count').textContent = `${completados}/7 días`;
-  document.getElementById('prog-fill').style.width  = pct + '%';
-  document.getElementById('prog-lbl').textContent   = pct + '%';
-}
+  if (usuarios.length === 0) {
+    grid.innerHTML = '<p style="color:var(--t2);font-size:14px;text-align:center;grid-column:1/-1">Aún no hay usuarios.<br>Crea el primero.</p>';
+    return;
+  }
 
-function renderStrip(data) {
-  const strip = document.getElementById('day-strip');
-  strip.innerHTML = data.dias.map(d => {
-    const esHoy   = d.dia_id === data.hoy_dia_id;
-    const clases  = ['dp', d.completado ? 'dn' : '', esHoy ? 'act' : ''].filter(Boolean).join(' ');
-    return `<div class="${clases}" onclick="renderDia(${d.dia_id})">
-      <span class="pn">${d.nombre.slice(0,3)}${esHoy ? ' ·' : ''}</span>
-      <span class="pt">${d.completado ? '✓' : d.label}</span>
-    </div>`;
-  }).join('');
-}
-
-async function renderDia(dia_id) {
-  // Actualizar strip activo
-  document.querySelectorAll('.dp').forEach((el, i) => {
-    el.classList.toggle('act', i === dia_id && !el.classList.contains('dn'));
-  });
-
-  const res  = await fetch(`/api/rutina/${dia_id}`);
-  const data = await res.json();
-
-  const cnt = document.getElementById('main-content');
-
-  const badge = badgeHTML(dia_id);
-  const seccionesHTML = data.secciones.map(sec => `
-    <div class="sec">
-      <div class="sct">${sec.nombre}</div>
-      ${sec.ejercicios.map(ex => ejercicioHTML(ex, dia_id)).join('')}
+  grid.innerHTML = usuarios.map(u => `
+    <div class="usuario-card" onclick="seleccionarUsuario(${u.id}, '${u.nombre}', '${u.avatar}', ${u.tiene_pin})">
+      <div class="usuario-avatar">${u.avatar}</div>
+      <div class="usuario-nombre">${u.nombre}</div>
+      ${u.tiene_pin ? '<div class="usuario-pin-badge">🔒</div>' : ''}
     </div>
   `).join('');
-
-  cnt.innerHTML = `
-    <div style="margin-bottom:12px">
-      <div class="dmeta">
-        ${badge}
-        ${data.completado ? '<span class="bdg bg">✓ Completado</span>' : ''}
-      </div>
-      <div class="dtitle">${data.info.nombre} — ${data.info.label}</div>
-      <div class="dsub">Nivel de carga: <strong>${data.nivel}</strong></div>
-    </div>
-    <div class="mets">
-      <div class="met"><div class="ml">Duración</div><div class="mv">${data.info.duracion}</div></div>
-      <div class="met"><div class="ml">Intensidad</div><div class="mv">${data.info.intensidad}</div></div>
-      <div class="met"><div class="ml">Ejercicios</div><div class="mv">${data.hechos_ex}/${data.total_ex}</div></div>
-    </div>
-    ${seccionesHTML}
-    <div class="tip"><div class="tipl">Consejo</div>${data.tip}</div>
-    <button class="cbtn ${data.completado ? 'on' : ''}" onclick="toggleSesion(${dia_id}, this)">
-      ${data.completado ? '✓ Sesión completada' : 'Marcar sesión como completada'}
-    </button>
-    <div class="alrt" style="margin-top:12px">
-      <div class="alrtt">⚠ Detener si aparece:</div>
-      <div class="alrti">· Dolor en rodilla mayor a 3/10</div>
-      <div class="alrti">· Hormigueo o entumecimiento en brazos/manos</div>
-      <div class="alrti">· Hinchazón visible en rodilla post-sesión</div>
-    </div>
-  `;
 }
 
-function ejercicioHTML(ex, dia_id) {
-  const tagCls = ex.tag === 'new' ? 'tnew' : ex.tag === 'warn' ? 'twarn' : 'tkeep';
-  const tagTxt = ex.tag === 'new' ? 'Nuevo — tenis' : ex.tag === 'warn' ? 'Precaución' : 'Sin cambios';
-  return `
-    <div class="exr" onclick="toggleEjercicio(${ex.id}, this)" data-hecho="${ex.hecho}">
-      <div class="chk ${ex.hecho ? 'on' : ''}">
-        ${ex.hecho ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
-      </div>
-      <div class="exb">
-        <div class="exn ${ex.hecho ? 'dk' : ''}">${ex.nombre}</div>
-        <div class="exd">${ex.detalle}</div>
-        <div class="etags"><span class="etag ${tagCls}">${tagTxt}</span></div>
-        ${ex.nota ? `<div class="enote">${ex.nota}</div>` : ''}
-      </div>
-    </div>`;
+function seleccionarUsuario(id, nombre, avatar, tiene_pin) {
+  usuarioLogin = {id, nombre, avatar};
+  if (tiene_pin) {
+    document.getElementById('pin-avatar').textContent = avatar;
+    document.getElementById('pin-nombre').textContent = nombre;
+    document.getElementById('pin-error').style.display = 'none';
+    ['p1','p2','p3','p4'].forEach(pid => document.getElementById(pid).value = '');
+    document.getElementById('modal-pin').style.display = 'flex';
+    document.getElementById('p1').focus();
+    setupPinInputs();
+  } else {
+    hacerLogin(id, '');
+  }
 }
 
-function badgeHTML(dia_id) {
-  const badges = {
-    0: '<span class="bdg bp">Fase 2 — Fundamentos</span>',
-    1: '<span class="bdg bp">Fase 2 — Fundamentos</span>',
-    2: '<span class="bdg bc">Prioridad — rodilla</span>',
-    3: '<span class="bdg bp">Fase 2 — Fundamentos</span>',
-    4: '<span class="bdg bg">Validación en cancha</span>',
-    5: '<span class="bdg bt">Recuperación activa</span>',
-    6: '<span class="bdg bt">Recuperación</span>',
-  };
-  return badges[dia_id] || '';
-}
-
-async function toggleEjercicio(ejercicio_id, el) {
-  const res  = await fetch('/api/progreso', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ejercicio_id})
+function setupPinInputs() {
+  const inputs = ['p1','p2','p3','p4'].map(id => document.getElementById(id));
+  inputs.forEach((inp, i) => {
+    inp.oninput = () => {
+      if (inp.value && i < 3) inputs[i+1].focus();
+      if (inputs.every(x => x.value)) submitPin();
+    };
+    inp.onkeydown = (e) => {
+      if (e.key === 'Backspace' && !inp.value && i > 0) inputs[i-1].focus();
+    };
   });
-  const data = await res.json();
-  const chk  = el.querySelector('.chk');
-  const exn  = el.querySelector('.exn');
-  chk.classList.toggle('on', data.hecho);
-  chk.innerHTML = data.hecho
-    ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    : '';
-  exn.classList.toggle('dk', data.hecho);
 }
 
-async function toggleSesion(dia_id, btn) {
-  const res  = await fetch('/api/sesion/completar', {
+function submitPin() {
+  const pin = ['p1','p2','p3','p4'].map(id => document.getElementById(id).value).join('');
+  hacerLogin(usuarioLogin.id, pin);
+}
+
+async function hacerLogin(uid, pin) {
+  const res = await fetch(`/api/usuarios/${uid}/login`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({dia_id})
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({pin})
   });
-  const data = await res.json();
-  btn.classList.toggle('on', data.completada);
-  btn.textContent = data.completada ? '✓ Sesión completada' : 'Marcar sesión como completada';
-
-  // Recargar semana para actualizar progreso
-  await cargarSemana();
+  if (res.ok) {
+    window.location.href = '/app';
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+    ['p1','p2','p3','p4'].forEach(pid => document.getElementById(pid).value = '');
+    document.getElementById('p1').focus();
+  }
 }
 
-cargarSemana();
+function mostrarNuevoUsuario() {
+  const sel = document.getElementById('avatar-selector');
+  sel.innerHTML = AVATARES.map(a => `
+    <span class="avatar-opt ${a===avatarSeleccionado?'act':''}" onclick="selectAvatar('${a}', this)">${a}</span>
+  `).join('');
+  document.getElementById('nuevo-nombre').value = '';
+  document.getElementById('nuevo-pin').value = '';
+  document.getElementById('nuevo-error').style.display = 'none';
+  document.getElementById('modal-nuevo').style.display = 'flex';
+  document.getElementById('nuevo-nombre').focus();
+}
+
+function selectAvatar(a, el) {
+  avatarSeleccionado = a;
+  document.querySelectorAll('.avatar-opt').forEach(x => x.classList.remove('act'));
+  el.classList.add('act');
+}
+
+async function crearUsuario() {
+  const nombre = document.getElementById('nuevo-nombre').value.trim();
+  const pin    = document.getElementById('nuevo-pin').value.trim();
+  const errEl  = document.getElementById('nuevo-error');
+
+  if (!nombre) { errEl.textContent='El nombre es requerido'; errEl.style.display='block'; return; }
+  if (pin && (!/^\d{4}$/.test(pin))) { errEl.textContent='El PIN debe ser de 4 dígitos'; errEl.style.display='block'; return; }
+
+  const res = await fetch('/api/usuarios', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({nombre, avatar: avatarSeleccionado, pin: pin||null})
+  });
+
+  if (res.ok) {
+    cerrarModal();
+    cargarUsuarios();
+  } else {
+    const data = await res.json();
+    errEl.textContent = data.error || 'Error al crear usuario';
+    errEl.style.display = 'block';
+  }
+}
+
+function cerrarModal() {
+  document.getElementById('modal-pin').style.display = 'none';
+  document.getElementById('modal-nuevo').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+
+cargarUsuarios();
 </script>
-{% endblock %}
+</body>
+</html>

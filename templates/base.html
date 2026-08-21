@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#ffffff">
 <title>{% block title %}RPG Tenis{% endblock %}</title>
@@ -10,23 +10,15 @@
 {% block head %}{% endblock %}
 </head>
 <body>
-<div id="app-root">
-  {% block content %}{% endblock %}
-</div>
-
-<!-- Bottom nav -->
+{% block content %}{% endblock %}
+{% block nav %}
 <nav class="bnav">
-  <a href="/" class="nb {% if request.path == '/' %}act{% endif %}">
-    <span class="ni">📋</span>Hoy
-  </a>
-  <a href="/historial" class="nb {% if request.path == '/historial' %}act{% endif %}">
-    <span class="ni">🗂</span>Historial
-  </a>
-  <a href="/configuracion" class="nb {% if request.path == '/configuracion' %}act{% endif %}">
-    <span class="ni">⚙️</span>Config
-  </a>
+  <a href="/app"          class="nb {% if request.path == '/app' %}act{% endif %}"><span class="ni">📋</span>Hoy</a>
+  <a href="/historial"    class="nb {% if request.path == '/historial' %}act{% endif %}"><span class="ni">🗂</span>Historial</a>
+  <a href="/configuracion"class="nb {% if request.path == '/configuracion' %}act{% endif %}"><span class="ni">⚙️</span>Config</a>
+  <button class="nb" onclick="logout()"><span class="ni">👤</span>Salir</button>
 </nav>
-
+{% endblock %}
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>

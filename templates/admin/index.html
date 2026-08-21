@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — RPG Tenis</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+<div class="admin-wrap">
+  <div class="admin-hdr">
+    <h1>⚙️ Panel de administración</h1>
+    <p>RPG Tenis — Gestión de usuarios y rutinas</p>
+  </div>
+
+  <div class="admin-grid">
+    <a href="/admin/{{ token }}/usuarios" class="admin-card">
+      <div class="admin-card-icon">👥</div>
+      <div class="admin-card-title">Usuarios</div>
+      <div class="admin-card-desc">Ver, crear y gestionar usuarios del sistema</div>
+    </a>
+    <a href="/admin/{{ token }}/rutinas" class="admin-card">
+      <div class="admin-card-icon">📋</div>
+      <div class="admin-card-title">Rutinas</div>
+      <div class="admin-card-desc">Cargar ejercicios desde archivo MD generado por Claude</div>
+    </a>
+  </div>
+
+  <div class="admin-info">
+    <strong>URL de acceso:</strong> <code>/admin/{{ token }}</code><br>
+    <strong>Guarda esta URL</strong> — es la única forma de acceder al panel.
+  </div>
+</div>
+</body>
+</html>

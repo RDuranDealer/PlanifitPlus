@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}RPG Tenis{% endblock %}
+
+{% block content %}
+<div class="hdr">
+  <div class="hr">
+    <div>
+      <div class="atitle">RPG Tenis <span id="usuario-avatar" style="margin-left:4px"></span></div>
+      <div class="asub" id="usuario-nombre">Cargando...</div>
+    </div>
+    <div style="text-align:right">
+      <div class="wk-lbl">Esta semana</div>
+      <div class="wk-val" id="dias-count">—</div>
+    </div>
+  </div>
+  <div class="pw">
+    <div class="pb"><div class="pf" id="prog-fill" style="width:0%"></div></div>
+    <div class="pl" id="prog-lbl">0%</div>
+  </div>
+</div>
+
+<div class="strip" id="day-strip"></div>
+<div class="cnt" id="main-content"><div class="loading-msg">Cargando tu semana...</div></div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ex-detail-panel {
+  display: none;
+  background: var(--s2);
+  border-radius: 10px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.ex-detail-panel.open { display: block; }
+.ex-video-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #FF0000;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 8px;
+  margin: 10px;
+  width: calc(100% - 20px);
+  box-sizing: border-box;
+}
+.ex-video-btn:hover { background: #cc0000; }
+.ex-video-icon { font-size: 16px; }
+.ex-pasos {
+  padding: 10px 12px 12px;
+  border-top: 0.5px solid var(--br);
+}
+.ex-pasos-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t2);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 8px;
+}
+.ex-paso {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--t);
+  line-height: 1.5;
+}
+.ex-paso-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pur);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.ex-expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--pur);
+  cursor: pointer;
+  margin-top: 5px;
+  border: none;
+  background: none;
+  padding: 0;
+}
+.ex-expand-icon { transition: transform .2s; font-size: 10px; }
+.ex-expand-btn.open .ex-expand-icon { transform: rotate(180deg); }
+</style>
+
+<script>
+let semanaData = null;
+
+async function init() {
+  const sr = await fetch('/api/usuarios/session');
+  const sd = await sr.json();
+  if (!sd.usuario) { window.location.href='/'; return; }
+  document.getElementById('usuario-avatar').textContent = sd.usuario.avatar;
+  document.getElementById('usuario-nombre').textContent = sd.usuario.nombre;
+  await cargarSemana();
+}
+
+async function cargarSemana() {
+  const res = await fetch('/api/semana');
+  if (res.status===401) { window.location.href='/'; return; }
+  semanaData = await res.json();
+  renderStrip(semanaData);
+  renderDia(semanaData.hoy_dia_id);
+  actualizarHeader(semanaData);
+}
+
+function actualizarHeader(data) {
+  const comp = data.dias.filter(d=>d.completado).length;
+  const pct  = Math.round(comp/7*100);
+  document.getElementById('dias-count').textContent = `${comp}/7 días`;
+  document.getElementById('prog-fill').style.width  = pct+'%';
+  document.getElementById('prog-lbl').textContent   = pct+'%';
+}
+
+function renderStrip(data) {
+  document.getElementById('day-strip').innerHTML = data.dias.map(d => {
+    const esHoy  = d.dia_id === data.hoy_dia_id;
+    const clases = ['dp', d.completado?'dn':'', esHoy?'act':''].filter(Boolean).join(' ');
+    return `<div class="${clases}" onclick="renderDia(${d.dia_id})">
+      <span class="pn">${d.nombre.slice(0,3)}${esHoy?' ·':''}</span>
+      <span class="pt">${d.completado?'✓':d.label}</span>
+    </div>`;
+  }).join('');
+}
+
+async function renderDia(dia_id) {
+  document.querySelectorAll('.dp').forEach((el,i) => {
+    el.classList.toggle('act', i===dia_id);
+  });
+
+  const res  = await fetch(`/api/rutina/${dia_id}`);
+  if (res.status===401) { window.location.href='/'; return; }
+  const data = await res.json();
+
+  const badges = {
+    0:'<span class="bdg bp">Fase — Fundamentos</span>',
+    1:'<span class="bdg bp">Fase — Fundamentos</span>',
+    2:'<span class="bdg bc">Prioridad — rodilla</span>',
+    3:'<span class="bdg bp">Fase — Fundamentos</span>',
+    4:'<span class="bdg bg">Validación en cancha</span>',
+    5:'<span class="bdg bt">Recuperación activa</span>',
+    6:'<span class="bdg bt">Recuperación</span>',
+  };
+
+  const secs = data.secciones.map(sec => `
+    <div class="sec">
+      <div class="sct">${sec.nombre}</div>
+      ${sec.ejercicios.map(ex => ejercicioHTML(ex)).join('')}
+    </div>`).join('');
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="margin-bottom:12px">
+      <div class="dmeta">${badges[dia_id]||''}${data.completado?'<span class="bdg bg">✓ Completado</span>':''}</div>
+      <div class="dtitle">${data.info.nombre} — ${data.info.label}</div>
+      <div class="dsub">Nivel de carga: <strong>${data.nivel}</strong></div>
+    </div>
+    <div class="mets">
+      <div class="met"><div class="ml">Duración</div><div class="mv">${data.info.duracion}</div></div>
+      <div class="met"><div class="ml">Intensidad</div><div class="mv">${data.info.intensidad}</div></div>
+      <div class="met"><div class="ml">Ejercicios</div><div class="mv">${data.hechos_ex}/${data.total_ex}</div></div>
+    </div>
+    ${secs}
+    <div class="tip"><div class="tipl">Consejo</div>${data.tip}</div>
+    <button class="cbtn ${data.completado?'on':''}" onclick="toggleSesion(${dia_id}, this)">
+      ${data.completado?'✓ Sesión completada':'Marcar sesión como completada'}
+    </button>
+    <div class="alrt" style="margin-top:12px">
+      <div class="alrtt">⚠ Detener si aparece:</div>
+      <div class="alrti">· Dolor en rodilla mayor a 3/10</div>
+      <div class="alrti">· Hormigueo o entumecimiento en brazos/manos</div>
+      <div class="alrti">· Hinchazón visible en rodilla post-sesión</div>
+    </div>`;
+}
+
+function ejercicioHTML(ex) {
+  const tc = ex.tag==='new'?'tnew':ex.tag==='warn'?'twarn':'tkeep';
+  const tl = ex.tag==='new'?'Nuevo':'Precaución'in ex?'Precaución':'Sin cambios';
+  const tagLabel = ex.tag==='new'?'Nuevo — específico':ex.tag==='warn'?'⚠ Precaución':'Sin cambios';
+
+  // Panel de video
+  const videoHTML = ex.video_url ? `
+    <a href="${ex.video_url}" target="_blank" class="ex-video-btn">
+      <span class="ex-video-icon">▶</span> Ver cómo se hace en YouTube
+    </a>` : '';
+
+  // Panel de pasos
+  let pasosHTML = '';
+  if (ex.pasos) {
+    const lineas = ex.pasos.split('\n').filter(l => l.trim());
+    const items  = lineas.map((l, i) => {
+      // Limpiar numeración si viene del MD (ej "1. Texto")
+      const txt = l.replace(/^\d+\.\s*/, '').trim();
+      return `<div class="ex-paso">
+        <div class="ex-paso-num">${i+1}</div>
+        <div>${txt}</div>
+      </div>`;
+    }).join('');
+    pasosHTML = `
+      <div class="ex-pasos">
+        <div class="ex-pasos-title">Cómo ejecutarlo correctamente</div>
+        ${items}
+      </div>`;
+  }
+
+  // Botón expandir solo si hay video o pasos
+  const tieneDetalle = ex.video_url || ex.pasos;
+  const expandBtn = tieneDetalle ? `
+    <button class="ex-expand-btn" id="btn-${ex.id}" onclick="toggleDetalle(${ex.id})">
+      <span>Ver cómo se hace</span>
+      <span class="ex-expand-icon">▾</span>
+    </button>` : '';
+
+  const panelDetalle = tieneDetalle ? `
+    <div class="ex-detail-panel" id="panel-${ex.id}">
+      ${videoHTML}
+      ${pasosHTML}
+    </div>` : '';
+
+  return `
+    <div class="exr" onclick="toggleEx(${ex.id}, this)">
+      <div class="chk ${ex.hecho?'on':''}">
+        ${ex.hecho?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+      </div>
+      <div class="exb">
+        <div class="exn ${ex.hecho?'dk':''}">${ex.nombre}</div>
+        <div class="exd">${ex.detalle}</div>
+        <div class="etags"><span class="etag ${tc}">${tagLabel}</span></div>
+        ${ex.nota?`<div class="enote">${ex.nota}</div>`:''}
+        ${expandBtn}
+        ${panelDetalle}
+      </div>
+    </div>`;
+}
+
+function toggleDetalle(id) {
+  const panel = document.getElementById(`panel-${id}`);
+  const btn   = document.getElementById(`btn-${id}`);
+  const open  = panel.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  // Evitar que el click propague al toggle del ejercicio
+  event.stopPropagation();
+}
+
+async function toggleEx(id, el) {
+  const res  = await fetch('/api/progreso', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ejercicio_id:id})
+  });
+  const data = await res.json();
+  const chk  = el.querySelector('.chk');
+  const exn  = el.querySelector('.exn');
+  chk.classList.toggle('on', data.hecho);
+  chk.innerHTML = data.hecho
+    ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    : '';
+  exn.classList.toggle('dk', data.hecho);
+}
+
+async function toggleSesion(dia_id, btn) {
+  const res  = await fetch('/api/sesion/completar', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({dia_id})
+  });
+  const data = await res.json();
+  btn.classList.toggle('on', data.completada);
+  btn.textContent = data.completada?'✓ Sesión completada':'Marcar sesión como completada';
+  await cargarSemana();
+}
+
+init();
+</script>
+{% endblock %}
