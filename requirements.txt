@@ -5,3 +5,4 @@ gunicorn==22.0.0
 python-dotenv==1.0.1
 Flask-Migrate==4.0.7
 anthropic>=0.30.0
+gevent==24.2.1
