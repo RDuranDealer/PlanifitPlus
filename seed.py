@@ -1,4 +1,3 @@
-from app import app
 from models import db, Usuario, Ejercicio, Config
 
 DATOS_EJERCICIOS = [
@@ -77,32 +76,31 @@ def cargar_ejercicios_usuario(usuario_id):
 
 
 def seed():
-    with app.app_context():
-        db.create_all()
+    """Llamar desde dentro de un app_context ya activo."""
+    db.create_all()
 
-        if Usuario.query.count() > 0:
-            print("Ya existen datos. Saltando seed.")
-            return
+    if Usuario.query.count() > 0:
+        print("Ya existen datos. Saltando seed.")
+        return
 
-        # Crear usuario Rodrigo por defecto
-        rodrigo = Usuario(nombre='Rodrigo', avatar='🎾', pin=None)
-        db.session.add(rodrigo)
-        db.session.flush()
+    rodrigo = Usuario(nombre='Rodrigo', avatar='🎾', pin=None)
+    db.session.add(rodrigo)
+    db.session.flush()
 
-        # Cargar ejercicios para Rodrigo
-        cargar_ejercicios_usuario(rodrigo.id)
+    cargar_ejercicios_usuario(rodrigo.id)
 
-        # Config por defecto para Rodrigo
-        for clave, valor, desc in [
-            ('fase_actual',   '2',    'Fase del programa'),
-            ('carga_nivel',   'alto', 'Nivel de carga'),
-            ('semana_actual', '1',    'Semana actual'),
-        ]:
-            db.session.add(Config(usuario_id=rodrigo.id, clave=clave, valor=valor, descripcion=desc))
+    for clave, valor, desc in [
+        ('fase_actual',   '2',    'Fase del programa'),
+        ('carga_nivel',   'alto', 'Nivel de carga'),
+        ('semana_actual', '1',    'Semana actual'),
+    ]:
+        db.session.add(Config(usuario_id=rodrigo.id, clave=clave, valor=valor, descripcion=desc))
 
-        db.session.commit()
-        print(f"Seed completado: usuario Rodrigo + {Ejercicio.query.count()} ejercicios.")
+    db.session.commit()
+    print(f"Seed completado: usuario Rodrigo + {Ejercicio.query.count()} ejercicios.")
 
 
 if __name__ == '__main__':
-    seed()
+    from app import app as flask_app
+    with flask_app.app_context():
+        seed()
