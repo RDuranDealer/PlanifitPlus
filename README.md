@@ -8,6 +8,7 @@ App web Flask para seguimiento del plan RPG de retorno al tenis sin dolor.
 - SQLAlchemy ORM
 - Gunicorn (producción)
 
+
 ---
 
 ## Deploy en Railway (paso a paso)
