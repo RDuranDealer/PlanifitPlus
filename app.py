@@ -23,9 +23,10 @@ def create_app():
     from routes.rutinas  import bp as rutinas_bp
     from routes.progreso import bp as progreso_bp
     from routes.config   import bp as config_bp
-    from routes.admin    import bp as admin_bp
+    from routes.admin      import bp as admin_bp
+    from routes.assessment import bp as assessment_bp
 
-    for bp in [usuarios_bp, rutinas_bp, progreso_bp, config_bp, admin_bp]:
+    for bp in [usuarios_bp, rutinas_bp, progreso_bp, config_bp, admin_bp, assessment_bp]:
         app.register_blueprint(bp)
 
     # ── Rutas HTML ────────────────────────────────────────────────────────────

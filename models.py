@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date
+import json
 
 db = SQLAlchemy()
 AVATARES = ['🎾','💪','🏃','⚡','🔥','🦁','🐯','🦅','🌟','⚽']
@@ -16,8 +17,50 @@ class Usuario(db.Model):
     progresos=db.relationship('Progreso',backref='usuario',lazy=True,cascade='all, delete-orphan')
     sesiones=db.relationship('SesionDia',backref='usuario',lazy=True,cascade='all, delete-orphan')
     configs=db.relationship('Config',backref='usuario',lazy=True,cascade='all, delete-orphan')
+    assessments=db.relationship('Assessment',backref='usuario',lazy=True,cascade='all, delete-orphan')
     def to_dict(self):
         return {'id':self.id,'nombre':self.nombre,'avatar':self.avatar,'tiene_pin':bool(self.pin)}
+
+
+class Assessment(db.Model):
+    """Historial de entrevistas y rutinas generadas por Claude para cada usuario."""
+    __tablename__ = 'assessments'
+    id          = db.Column(db.Integer, primary_key=True)
+    usuario_id  = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    # Datos del formulario (JSON)
+    datos       = db.Column(db.Text, nullable=False)   # JSON con perfil, salud, equipo, objetivo
+    # Resultado
+    md_generado = db.Column(db.Text)                   # MD completo devuelto por Claude
+    ejercicios_cargados = db.Column(db.Integer, default=0)
+    # Estado
+    activo      = db.Column(db.Boolean, default=True)  # Solo uno activo por usuario
+    estado      = db.Column(db.String(20), default='pendiente')  # pendiente | generando | listo | error
+    error_msg   = db.Column(db.Text)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def datos_dict(self):
+        try: return json.loads(self.datos)
+        except: return {}
+
+    def to_dict(self):
+        d = self.datos_dict()
+        return {
+            'id':          self.id,
+            'usuario_id':  self.usuario_id,
+            'activo':      self.activo,
+            'estado':      self.estado,
+            'ejercicios_cargados': self.ejercicios_cargados,
+            'error_msg':   self.error_msg,
+            'created_at':  self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else '',
+            'perfil': {
+                'nombre':    d.get('nombre',''),
+                'edad':      d.get('edad',''),
+                'objetivo':  d.get('objetivo',''),
+                'estilo':    d.get('estilo',''),
+                'dias':      d.get('dias_semana',''),
+                'tiempo':    d.get('tiempo_sesion',''),
+            }
+        }
 
 class Ejercicio(db.Model):
     __tablename__ = 'ejercicios'
